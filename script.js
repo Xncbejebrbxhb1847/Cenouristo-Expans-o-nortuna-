@@ -20,7 +20,6 @@
     box-shadow: 0 0 25px rgba(0,0,0,0.7);
   `;
 
-  // CABEÇALHO PERSONALIZADO
   const header = document.createElement("div");
   header.style.cssText = "text-align:center;width:100%;margin-top:-20px;margin-bottom:20px;";
   header.innerHTML = `
@@ -200,7 +199,7 @@
       });
 
       const redirectUrl = startRes.url;
-      const attemptId = redirectUrl.match(/attempt=(\\d+)/)?.[1];
+      const attemptId = redirectUrl.match(/attempt=(\d+)/)?.[1]; // CORRIGIDO
       if (!attemptId) throw new Error("ID tentativa não encontrado");
 
       const res2 = await fetch(redirectUrl, { credentials: "include" });
@@ -283,5 +282,11 @@
     setTimeout(() => location.reload(), 2000);
   }
 
-  await processAll();
+  try {
+    await processAll();
+  } catch (e) {
+    showToast("❌ Erro ao processar tarefas: " + e.message, false);
+    console.error(e);
+  }
+
 })();
