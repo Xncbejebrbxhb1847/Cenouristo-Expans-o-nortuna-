@@ -24,7 +24,7 @@
   header.style.cssText = "text-align:center;width:100%;margin-top:-20px;margin-bottom:20px;";
   header.innerHTML = `
     <img src="https://i.imgur.com/5nmqcOu.jpeg" alt="Perfil" style="width:110px;height:110px;border-radius:20%;object-fit:cover;margin:0 auto 5px auto;display:block;">
-    <h1 style="margin:4px 0 2px 0;font-size:22px;font-family:Arial,sans-serif;color:white;">𝙲𝚎𝚗𝚘𝚞𝚛𝚒𝚝𝚘𝚜 𝚃𝚊𝚛𝚎𝚏𝚊𝚜/𝚙𝚛𝚘𝚟𝚊𝚜</h1>
+    <h1 style="margin:4px 0 2px 0;font-size:22px;font-family:Arial,sans-serif;color:white;">𝙲𝚎𝚗𝚘𝚞𝚛𝚒𝚝𝚘𝚜 𝙴𝚡𝚙𝚊𝚗𝚜𝚊𝚘 𝙽𝚘𝚛𝚝𝚞𝚗𝚊 </h1>
     <label style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;margin:0;color:#a1a1a1;">Sala do Futuro – CMSP Web</label>
   `;
   overlay.appendChild(header);
