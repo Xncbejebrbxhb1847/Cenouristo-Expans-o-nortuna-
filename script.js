@@ -199,7 +199,7 @@
       });
 
       const redirectUrl = startRes.url;
-      const attemptId = redirectUrl.match(/attempt=(\d+)/)?.[1]; // CORRIGIDO
+      const attemptId = redirectUrl.match(/attempt=(\d+)/)?.[1];
       if (!attemptId) throw new Error("ID tentativa não encontrado");
 
       const res2 = await fetch(redirectUrl, { credentials: "include" });
