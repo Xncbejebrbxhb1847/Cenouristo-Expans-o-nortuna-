@@ -1,5 +1,5 @@
 (async () => {
-  // Criar o overlay principal
+  // --- Criar overlay principal ---
   const overlay = document.createElement("div");
   overlay.style.cssText = `
     position: fixed;
@@ -21,7 +21,7 @@
     align-items: center;
   `;
 
-  // Título com gradiente de texto
+  // Título com gradiente
   const title = document.createElement("h1");
   title.innerText = "🌙 CENOURISTO EXPANSÃO NORTUNA";
   title.style.cssText = `
@@ -87,7 +87,7 @@
     box-shadow: inset 0 0 15px rgba(0,0,0,0.4);
   `;
 
-  // Botão para entrar no Discord
+  // Botão Discord
   const discordBtn = document.createElement("a");
   discordBtn.href = "https://discord.gg/332spXmetK";
   discordBtn.target = "_blank";
@@ -118,7 +118,7 @@
     discordBtn.style.boxShadow = "0 0 15px rgba(114, 137, 218, 0.7)";
   };
 
-  // Adiciona elementos ao overlay
+  // Append
   overlay.appendChild(title);
   overlay.appendChild(subtitle);
   overlay.appendChild(progressBarWrapper);
@@ -141,7 +141,7 @@
   `;
   document.body.appendChild(toastContainer);
 
-  // Função para mostrar notificações toast
+  // Toast function
   function showToast(message, success = true) {
     const toast = document.createElement("div");
     toast.style.cssText = `
@@ -177,7 +177,7 @@
     setTimeout(() => toast.remove(), 4000);
   }
 
-  // Animations CSS
+  // Styles for animations and scrollbar
   const style = document.createElement("style");
   style.innerHTML = `
     @keyframes toastProgress {
@@ -197,13 +197,11 @@
   `;
   document.head.appendChild(style);
 
-  // Atualiza a barra de progresso e texto
   function updateProgress(percent, message) {
     progressBar.style.width = percent + "%";
     subtitle.innerText = message;
   }
 
-  // Adiciona linha no log com ícones coloridos
   function logTask(message, success = true) {
     const entry = document.createElement("div");
     entry.innerHTML = success
@@ -214,20 +212,18 @@
     showToast(`${success ? '✅' : '❌'} ${message}`, success);
   }
 
-  // Função para retry em chamadas fetch com tratamento 429
   async function retry(fn, retries = 3, delay = 2000) {
     try {
       return await fn();
     } catch (e) {
       if (e.message.includes("429") && retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(r => setTimeout(r, delay));
         return retry(fn, retries - 1, delay * 2);
       }
       throw e;
     }
   }
 
-  // Processa recursos
   async function processResource(id, name) {
     try {
       logTask(`Iniciando: ${name}`);
@@ -243,22 +239,117 @@
     }
   }
 
-  // Processa quizzes (simplificado, pode manter o seu original)
   async function processQuiz(link, name) {
     try {
       logTask(`Iniciando avaliação: ${name}`);
-      // ... manter lógica original aqui ...
-      // Para manter o exemplo curto, vamos simular:
-      await new Promise(r => setTimeout(r, 2000));
+      const url = new URL(link);
+      const id = url.searchParams.get("id");
+
+      // Pega página inicial do quiz
+      const res1 = await retry(() => fetch(link, { method: "GET", credentials: "include" }));
+      const html1 = await res1.text();
+
+      // Pega sesskey
+      const sesskeyMatch = html1.match(/sesskey=["']?([^"']+)/);
+      const sesskey = sesskeyMatch?.[1];
+      if (!sesskey) throw new Error("Sesskey não encontrada");
+
+      // Iniciar tentativa
+      const startData = new URLSearchParams();
+      startData.append("cmid", id);
+      startData.append("sesskey", sesskey);
+      const startRes = await retry(() => fetch("https://expansao.educacao.sp.gov.br/mod/quiz/startattempt.php", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: startData.toString(),
+        redirect: "follow"
+      }));
+
+      const redirectUrl = startRes.url;
+      const attemptIdMatch = redirectUrl.match(/attempt=(\d+)/);
+      const attemptId = attemptIdMatch?.[1];
+      if (!attemptId) throw new Error("ID tentativa não encontrado");
+
+      // Pega página da tentativa
+      const res2 = await retry(() => fetch(redirectUrl, { method: "GET", credentials: "include" }));
+      const html2 = await res2.text();
+      const doc = new DOMParser().parseFromString(html2, "text/html");
+
+      // Preparar dados do formulário
+      const inputs = doc.querySelectorAll("input[type='hidden']");
+      let questionId = "", sequence = "";
+      const payload = { attempt: attemptId, sesskey };
+
+      inputs.forEach(input => {
+        const n = input.name;
+        const v = input.value;
+        if (n.includes(":sequencecheck")) {
+          [questionId] = n.split(":");
+          sequence = v;
+        } else {
+          payload[n] = v;
+        }
+      });
+
+      // Escolher uma opção válida aleatória para cada pergunta
+      const radios = [...doc.querySelectorAll("input[type='radio']")]
+        .filter(r => r.name.includes("_answer") && r.value !== "-1");
+      if (radios.length === 0) throw new Error("Nenhuma opção encontrada");
+
+      // Para simplicidade, escolhe uma aleatória
+      const selected = radios[Math.floor(Math.random() * radios.length)];
+
+      // Construir FormData para envio
+      const formData = new FormData();
+      formData.append(`${questionId}:1_:flagged`, "0");
+      formData.append(`${questionId}:1_:sequencecheck`, sequence);
+      formData.append(selected.name, selected.value);
+      formData.append("next", "Finalizar tentativa ...");
+      formData.append("attempt", attemptId);
+      formData.append("sesskey", sesskey);
+      formData.append("slots", "1");
+
+      // Append os demais campos
+      Object.entries(payload).forEach(([k,v]) => {
+        if (!["attempt","sesskey"].includes(k)) formData.append(k,v);
+      });
+
+      // Enviar resposta
+      await retry(() => fetch(`https://expansao.educacao.sp.gov.br/mod/quiz/processattempt.php?cmid=${id}`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+        redirect: "follow"
+      }));
+
+      // Finalizar tentativa
+      const finishData = new URLSearchParams();
+      finishData.append("attempt", attemptId);
+      finishData.append("finishattempt", "1");
+      finishData.append("timeup", "0");
+      finishData.append("slots", "");
+      finishData.append("cmid", id);
+      finishData.append("sesskey", sesskey);
+
+      await retry(() => fetch("https://expansao.educacao.sp.gov.br/mod/quiz/processattempt.php", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: finishData.toString(),
+        redirect: "follow"
+      }));
+
       logTask(`Avaliação concluída: ${name}`);
       return true;
+
     } catch (e) {
       logTask(`Erro avaliação ${name}: ${e.message}`, false);
       return false;
     }
   }
 
-  // Fila de tarefas para evitar sobrecarga
+  // Fila para evitar flood de requests
   class TaskQueue {
     constructor(delay = 1600) {
       this.tasks = [];
@@ -285,7 +376,7 @@
     }
   }
 
-  // Função principal que processa todas as atividades
+  // Função principal para pegar e processar atividades
   async function processAll() {
     const activities = document.querySelectorAll("li.activity");
     const resources = [];
